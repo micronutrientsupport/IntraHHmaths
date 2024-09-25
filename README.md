@@ -1,4 +1,4 @@
-# Intra HH math calculations
+# IntraHHmath calculations
 
 ## Using the package
 
