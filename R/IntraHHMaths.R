@@ -34,8 +34,8 @@
 # DONE Step 6: Create food_portions_ratio matrix for all increase and decrease ratios (0 - 100%)
 # DONE Crete parameter to calculate values (Equal, 10%, 20% ... 100%)
 # DONE Step 7: Create adjusted_grams_food matrix
-# Step 8: Create adjusted_dietary_intakes for each micronutrient
-# Step 9: TO DISCUSS: calculate the number of HH deficient / the cut off point / curve
+# DONE Step 8: Create adjusted_dietary_intakes for each micronutrient
+# TODO Step 9: calculate the number of HH deficient
 
 readData <- function(HCES, FCT) {
   HCES <- read.csv(HCES, fileEncoding = "UTF-8-BOM")
@@ -195,38 +195,27 @@ grams_table <- grams_table_m[,c(ncol(grams_table_m),1:(ncol(grams_table_m)-1))]
 return(grams_table)
 }
 
-# Adjusted dietary intakes:
-fct_dataset <- merge(grams_table, dataset, by = "food_item")
-
-### apply function to each dataset
-# one row
-
-fct_dataset[1 , "Equitable household food distribution"] / 100 * fct_dataset[1 , micronutrient]
-micronutrient <- "PROTEIN_G"
-percentage <- "Equitable household food distribution"
-
-test <- fct_dataset[ , c(2:4, 32:34)]
-
-product <- function(micronutrient, percentage, fct_dataset){
-  A <- fct_dataset[percentage]
-  # accessing elements from first column
-  B <- fct_dataset[micronutrient]
-  # return product
-  result <- sum((A / 100) * B)
-  return(list(micronutrient, percentaresult)
+adjIntake <- function(micronutrient, percentages, fct_dataset){
+  percent_colomns <- fct_dataset[percentages]
+  micronutrient_column <- fct_dataset[micronutrient]
+  adjusted_intake <- apply(percent_colomns, 2, function (x) {sum( x / 100 * micronutrient_column)})
+  return(adjusted_intake)
 }
 
-sum(product(percentage, micronutrient, fct_dataset))
-
-
-apply(df, 1 , product)
-
-
-
-
-
-
-
+calcAdjIntake <- function (FCT, dataset, grams_table){
+  FCT <- read.csv(FCT, fileEncoding = "UTF-8-BOM")
+  micronutrients <- names(FCT)[!names(FCT) %in% c("food_code", "food_group", "food_subgroup", "description", "processing")]
+  percentages <- names(grams_table)[!names(grams_table) %in% c("food_item")]
+  fct_dataset <- merge(grams_table, dataset, by = "food_item")
+  adjusted_intake_list <- lapply(micronutrients, adjIntake, percentages, fct_dataset)
+  names(adjusted_intake_list) <- micronutrients
+  adjusted_intake_df <- as.data.frame(matrix(data = unlist(adjusted_intake_list, use.names = T),
+                                             nrow = length(adjusted_intake_list[[1]]),
+                                             ncol = length(adjusted_intake_list),
+                                             byrow = FALSE), row.names = percentages)
+  names(adjusted_intake_df) <- micronutrients
+  return(adjusted_intake_df)
+}
 
 
 # Main IntraHHMaths function
@@ -250,14 +239,14 @@ IntraHHMaths <- function(HCES,
   list_result_decrease <- calcGramsDec(dataset, energy_breakdown_table, n,
                                          food_group_adjust, food_group_compensate)
   grams_table <- gramsDF(dataset, list_result_increase, list_result_decrease, increase_decrease)
+  adjusted_intake <- calcAdjIntake(FCT, dataset, grams_table)
   return(list(dataset = dataset,
               energy_breakdown_table = energy_breakdown_table,
-              grams_table = grams_table))
+              grams_table = grams_table,
+              adjusted_intake = adjusted_intake))
 }
 
-
 # Function call examples:
-
 # Scenario 1 - Starchy Staples (food_group_compensate parameter empty)
 # model <- IntraHHMaths(HCES = "../data/HCES.csv",
 #                       FCT = "../data/FCT_changed.csv",
@@ -265,12 +254,12 @@ IntraHHMaths <- function(HCES,
 #                       food_group_adjust = "Starchy Staples",
 #                       increase_decrease = 'both',
 #                       model_increments = 10,
-#                       model_max_value = 1000)
+#                       model_max_value = 100)
 #
 # dataset <- model$dataset
 # energy_breakdown_table <- model$energy_breakdown_table
 # grams_table <- model$grams_table
-
+# adjusted_intake <-model$adjusted_intake
 
 # Scenario 2 - Legumes (food_group_compensate parameter empty)
 # model <- IntraHHMaths(HCES = "../data/HCES.csv",
@@ -284,9 +273,10 @@ IntraHHMaths <- function(HCES,
 # dataset <- model$dataset
 # energy_breakdown_table <- model$energy_breakdown_table
 # grams_table <- model$grams_table
+# adjusted_intake <-model$adjusted_intake
+#
 
-
-# Scenario 3 - food_group_compensate two parameters given:
+# # Scenario 3 - food_group_compensate two parameters given:
 model <- IntraHHMaths(HCES = "../data/HCES.csv",
                       FCT = "../data/FCT.csv",
                       # target_group = "WRA"
@@ -299,6 +289,7 @@ model <- IntraHHMaths(HCES = "../data/HCES.csv",
 dataset <- model$dataset
 energy_breakdown_table <- model$energy_breakdown_table
 grams_table <- model$grams_table
+adjusted_intake <-model$adjusted_intake
 
 
 # # # Testing purposes - Scenario 1
@@ -327,3 +318,4 @@ grams_table <- model$grams_table
 # increase_decrease <- 'both'
 # model_increments <- 10
 # model_max_value <- 100
+
