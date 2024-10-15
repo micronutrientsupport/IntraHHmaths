@@ -58,7 +58,9 @@ Now you should have two folders under the top level 'Intra-HH maths' directory:
 - health_survey (.dta file)
 - Household roster (.dta file) 
 - roster_columns_required.csv. This is a csv file provided in the "data" directory which requires you to fill in the "survey_variable_names" column ONLY. Please fill in this first column with column names/variables which equal your survey which
-equal 'sex', 'age in years' (age_y) and 'age in months' (age_m). 
+equal 'sex', 'age in years' (age_y) and 'age in months' (age_m).
+- IHS5_AME_FACTORS_vMAPS.csv (no need to modify)
+- IHS5_AME_SPEC_vMAPS.csv (no need to modify)
 
 #### 3.2. Set the working directory to the R script location ("R/IntraHHMaths.R")
 #### 3.3. Run the R script ("R/IntraHHMaths.R")
