@@ -10,7 +10,9 @@
 #'
 #' @details This model has been simulated on hypothetical data.
 #'
-#' @import #packages
+#' @importFrom magrittr %>%
+#'
+#' @import haven tidyverse dplyr janitor
 #'
 #' @return model
 #'
@@ -36,6 +38,86 @@
 # DONE Step 7: Create adjusted_grams_food matrix
 # DONE Step 8: Create adjusted_dietary_intakes for each micronutrient
 # TODO Step 9: calculate the number of HH deficient
+
+preprocess_analysis <- function(hh_roster_file){
+  hh_roster <- haven::read_dta(hh_roster_file)
+  # if( read.csv("../data/roster_columns_required.csv") == NULL) stop("too many iterations")
+  roster_columns <- read.csv("../data/roster_columns_required.csv")
+  survey_names <- roster_columns[ ,"survey_variable_names"]
+  standard_names <- roster_columns[ ,"hces_standard_name"]
+  data.table::setnames(hh_roster, survey_names, standard_names, skip_absent = TRUE)
+  ### Remove extreme age values!
+  hh_roster$age_m_total <- ifelse(is.na(hh_roster$age_m), hh_roster$age_y * 12, hh_roster$age_y * 12 + hh_roster$age_m)
+  return(hh_roster)
+}
+
+adjustPregnancy <- function(hh_pregnant_file){
+  hh_pregnant <- read.csv(hh_pregnant_file)
+  hh_pregnant$ame_preg <- 0.11
+  hh_pregnant$afe_preg <- 0.14
+  return(hh_pregnant)
+}
+
+loadAmefactors <- function(ame_factors_csv){
+  ame_factors <- read.csv(ame_factors_csv, fileEncoding = "UTF-8-BOM") |>
+    janitor::clean_names()
+  return(ame_factors)
+}
+
+loadAmespec <- function(ame_specific_csv){
+  ame_spec_factors <- read.csv(ame_specific_csv, fileEncoding= "UTF-8-BOM") |>
+    janitor::clean_names() |>
+    dplyr::rename(cat = population) |>
+    dplyr::select(cat, ame_spec, afe_spec)
+  return(ame_spec_factors)
+}
+
+calcAFME <- function(hh_roster, ame_factors, ame_spec_factors, hh_pregnant){
+  amfe_summary <-  hh_roster |>
+    # Add the AME/AFE factors to the roster data
+    dplyr::left_join(ame_factors, by = c("age_y" = "age")) |>
+    dplyr::mutate(
+      ame_base = dplyr::case_when(sex == 1 ~ ame_m, sex == 2 ~ ame_f),
+      afe_base = dplyr::case_when(sex == 1 ~ afe_m, sex == 2 ~ afe_f),
+      age_u1_cat = dplyr::case_when(
+        # NOTE: Round here will ensure that decimals are not omitted in the calculation
+        round(age_m_total) %in% 0:5 ~ "0-5 months",
+        round(age_m_total) %in% 6:8 ~ "6-8 months",
+        round(age_m_total) %in% 9:11 ~ "9-11 months"
+      )
+    ) |>
+    # Add the AME/AFE factors for the specific age categories
+    dplyr::left_join(ame_spec_factors, by = c("age_u1_cat" = "cat")) |>
+    # Dietary requirements for children under 1 year old
+    dplyr::mutate(
+      ame_lac = dplyr::case_when(age_y < 2 ~ 0.19),
+      afe_lac = dplyr::case_when(age_y < 2 ~ 0.24)
+    ) |>
+    dplyr::rowwise() |>
+    # TODO: Will it not be better to have the pregnancy values added at the same time here?
+    dplyr::mutate(ame = sum(c(ame_base, ame_spec, ame_lac), na.rm = TRUE),
+                  afe = sum(c(afe_base, afe_spec, afe_lac), na.rm = TRUE)) |>
+    # Calculate number of individuals in the households
+    dplyr::group_by(HHID) |>
+    dplyr::summarize(
+      hh_persons = dplyr::n(),
+      hh_ame = sum(ame),
+      hh_afe = sum(afe)
+    ) |>
+    # Merge with the pregnancy and illness data
+    dplyr::left_join(hh_pregnant, by = "HHID") |>
+    dplyr::rowwise() |>
+    dplyr::mutate(hh_ame = sum(c(hh_ame, ame_preg), na.rm = T),
+                  hh_afe = sum(c(hh_afe, afe_preg), na.rm = T)) |>
+    dplyr::ungroup() |>
+    # Fix single household factors
+    dplyr::mutate(
+      hh_ame = dplyr::if_else(hh_persons == 1, 1, hh_ame),
+      hh_afe = dplyr::if_else(hh_persons == 1, 1, hh_afe)
+    ) |>
+    dplyr::select(HHID, hh_ame, hh_afe, hh_persons)
+  return(amfe_summary)
+}
 
 readData <- function(HCES, FCT) {
   HCES <- read.csv(HCES, fileEncoding = "UTF-8-BOM")
@@ -222,6 +304,8 @@ calcAdjIntake <- function (FCT, dataset, grams_table){
 IntraHHMaths <- function(HCES,
                          FCT,
                          # target_group
+                         hh_roster_file,
+                         hh_pregnant_file,
                          food_group_adjust,
                          food_group_compensate = NULL,
                          increase_decrease = 'both',
@@ -229,7 +313,24 @@ IntraHHMaths <- function(HCES,
                          model_max_value,
                          ...) {
 
-  dataset <- readData(HCES, FCT)
+  hh_roster <- preprocess_analysis(hh_roster_file)
+
+  ame_factors <- loadAmefactors("../data/IHS5_AME_FACTORS_vMAPS.csv")
+
+  ame_spec_factors <- loadAmespec("../data/IHS5_AME_SPEC_vMAPS.csv")
+
+  hh_pregnant <- adjustPregnancy(hh_pregnant_file)
+
+  amfe_summary <- calcAFME(hh_roster, ame_factors, ame_spec_factors, hh_pregnant)
+
+  hces <- hh_roster |>
+    dplyr::left_join(amfe_summary)
+
+  ### hces is the new dataset!
+  # make calculations and return 'dataset' with the required columns
+
+  dataset <- readData(HCES, FCT) ### replace with hces... where does the FCT come from?
+
   initial_calculations <- calcConsumed(dataset, food_group_adjust, food_group_compensate)
   dataset <- initial_calculations$dataset
   energy_breakdown_table <-initial_calculations$energy_breakdown_table
@@ -250,7 +351,9 @@ IntraHHMaths <- function(HCES,
 # Scenario 1 - Starchy Staples (food_group_compensate parameter empty)
 # model <- IntraHHMaths(HCES = "../data/HCES.csv",
 #                       FCT = "../data/FCT_changed.csv",
-#                       # target_group = "WRA"
+#                       hh_roster = "../data/HH_MOD_B.dta",
+#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+#                       # target_group = "WRA",
 #                       food_group_adjust = "Starchy Staples",
 #                       increase_decrease = 'both',
 #                       model_increments = 10,
@@ -262,26 +365,12 @@ IntraHHMaths <- function(HCES,
 # adjusted_intake <-model$adjusted_intake
 
 # Scenario 2 - Legumes (food_group_compensate parameter empty)
-# model <- IntraHHMaths(HCES = "../data/HCES.csv",
-#                       FCT = "../data/FCT.csv",
-#                       # target_group = "WRA"
-#                       food_group_adjust = "Legumes",
-#                       increase_decrease = 'both',
-#                       model_increments = 10,
-#                       model_max_value = 100)
-#
-# dataset <- model$dataset
-# energy_breakdown_table <- model$energy_breakdown_table
-# grams_table <- model$grams_table
-# adjusted_intake <-model$adjusted_intake
-#
-
-# # Scenario 3 - food_group_compensate two parameters given:
 model <- IntraHHMaths(HCES = "../data/HCES.csv",
                       FCT = "../data/FCT.csv",
-                      # target_group = "WRA"
+                      hh_roster_file = "../data/HH_MOD_B.dta",
+                      hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+                      # target_group = "WRA",
                       food_group_adjust = "Legumes",
-                      food_group_compensate = "Starchy Staples",
                       increase_decrease = 'both',
                       model_increments = 10,
                       model_max_value = 100)
@@ -292,27 +381,55 @@ grams_table <- model$grams_table
 adjusted_intake <-model$adjusted_intake
 
 
-# # # Testing purposes - Scenario 1
-# HCES = "../data/HCES.csv"
-# FCT = "../data/FCT_changed.csv"
-# food_group_adjust <- "Starchy Staples"
-# food_group_compensate <- NULL
-# increase_decrease = 'both'
-# model_increments <- 10
-# model_max_value <- 100
+# # Scenario 3 - food_group_compensate two parameters given:
+# model <- IntraHHMaths(HCES = "../data/HCES.csv",
+#                       FCT = "../data/FCT.csv",
+#                       hh_roster_file = "../data/HH_MOD_B.dta",
+#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+#                       # target_group = "WRA",
+#                       food_group_adjust = "Legumes",
+#                       food_group_compensate = "Starchy Staples",
+#                       increase_decrease = 'both',
+#                       model_increments = 10,
+#                       model_max_value = 100)
+#
+# dataset <- model$dataset
+# energy_breakdown_table <- model$energy_breakdown_table
+# grams_table <- model$grams_table
+# adjusted_intake <-model$adjusted_intake
 
-# # Testing purposes - Scenario 2
+# Testing
+
+# library (haven)
+# library (tidyverse)
+# library (dplyr)
+# Testing purposes - Scenario 1
+HCES = "../data/HCES.csv"
+FCT = "../data/FCT_changed.csv"
+hh_roster_file = "../data/HH_MOD_B.dta"
+hh_pregnant_file = "../data/hh_pregnant_ids.csv"
+food_group_adjust <- "Starchy Staples"
+food_group_compensate <- NULL
+increase_decrease = 'both'
+model_increments <- 10
+model_max_value <- 100
+
+## Testing purposes - Scenario 2
 # HCES = "../data/HCES.csv"
 # FCT = "../data/FCT.csv"
+# hh_roster_file = "../data/HH_MOD_B.dta"
+# hh_pregnant_file = "../data/hh_pregnant_ids.csv",
 # food_group_adjust <- "Legumes"
 # food_group_compensate <- NULL
 # increase_decrease = 'both'
 # model_increments <- 10
 # model_max_value <- 100
-#
-# Testing purposes - Scenario 3
+
+## Testing purposes - Scenario 3
 # HCES <- "../data/HCES.csv"
 # FCT <- "../data/FCT.csv"
+# hh_roster_file = "../data/HH_MOD_B.dta"
+# hh_pregnant_file = "../data/hh_pregnant_ids.csv",
 # food_group_adjust <- "Legumes"
 # food_group_compensate <- "Starchy Staples"
 # increase_decrease <- 'both'
