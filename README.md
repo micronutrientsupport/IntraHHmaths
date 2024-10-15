@@ -55,8 +55,8 @@ Now you should have two folders under the top level 'Intra-HH maths' directory:
 #### 3.1. It is imperative that you provide the following files to run the model successfully: 
 - Food composition table (FCT.csv)
 - HCES (HCES.csv)
-- roster_columns_required.csv (this is a .csv provided in the "data" directory which requires you to fill in the "survey_variable_names" column ONLY. Please fill in this column with column names/variables in your survey which equal 
- 'sex', 'age in years' (age_y) and 'age in months' (age_m). 
+- roster_columns_required.csv. This is a csv file provided in the "data" directory which requires you to fill in the "survey_variable_names" column ONLY. Please fill in this first column with column names/variables which equal your survey which
+equal 'sex', 'age in years' (age_y) and 'age in months' (age_m). 
 
 #### 3.2. Set the working directory to the R script location ("R/IntraHHMaths.R")
 #### 3.3. Run the R script ("R/IntraHHMaths.R")
