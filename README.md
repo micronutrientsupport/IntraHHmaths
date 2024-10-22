@@ -65,6 +65,6 @@ equal 'sex', 'age in years' (age_y) and 'age in months' (age_m).
 #### 3.2. Set the working directory to the R script location ("R/IntraHHMaths.R")
 #### 3.3. Run the R script ("R/IntraHHMaths.R")
 
-```r
+```
 You should be able to run the beginnings of the model!
 ```
