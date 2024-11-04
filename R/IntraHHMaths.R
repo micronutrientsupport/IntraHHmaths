@@ -165,22 +165,36 @@
     dataset <- data.frame(hces[ , c("HHID", "age_y", "sex", "hh_afe", "hh_ame", "hh_persons",  "PID")])
     dataset$kcal <- apply(dataset, 1, getKcal, ame_factors)
     dataset$kcal <- apply(dataset, 1, getKcal, ame_factors)
-
     dataset$category <- apply(dataset, 1, ageCat)
     return(dataset)
   }
+#
+#   targetConsumption <- function(dataset, hhid, hh_food_cons, target_group) {
+#     dataset <- dataset[dataset$HHID == hhid, ]
+#     dataset$kcal <- as.numeric(dataset$kcal)
+#     dataset$afe <- dataset$kcal / (dataset[dataset$category == "WRA", "kcal"])
+#     dataset$household_afe <- sum(dataset$afe)
+#     dataset$individual_afe <- dataset$afe / dataset$household_afe
+#     dataset <- merge(hh_food_cons, dataset, by = "HHID")
+#     dataset$amount_eaten_per_day <- (dataset$individual_afe * dataset$quantity_100g_day)
+#     dataset <- dataset [dataset$category == target_group, ]
+#     return(dataset)
+#   }
+#
+# dataset <- lapply(hhid, targetConsumption, dataset, hh_food_cons, target_group)
 
-  targetConsumption <- function(dataset, hhid, hh_food_cons, target_group) {
-    hh_consumption <- dataset[dataset$HHID == hhid, ]
-    hh_consumption$kcal <- as.numeric(hh_consumption$kcal)
-    hh_consumption$afe <- hh_consumption$kcal / (hh_consumption[hh_consumption$category == "WRA", "kcal"])
-    hh_consumption$household_afe <- sum(hh_consumption$afe)
-    hh_consumption$individual_afe <- hh_consumption$afe / hh_consumption$household_afe
-    hh_consumption <- merge(hh_food_cons, hh_consumption, by = "HHID")
-    hh_consumption$amount_eaten_per_day <- (hh_consumption$individual_afe * hh_consumption$quantity_100g_day)
-    dataset <- hh_consumption [hh_consumption$category == target_group, ]
+  targetConsumption <- function(hhid, dataset, hh_food_cons, target_group) {
+    dataset <- dataset[dataset ["HHID"] == hhid,]
+    dataset$kcal <- as.numeric(dataset$kcal)
+    dataset$afe <- dataset$kcal / (dataset[dataset$category == "WRA", "kcal"])
+    dataset$household_afe <- sum(dataset$afe)
+    dataset$individual_afe <- dataset$afe / dataset$household_afe
+    dataset <- merge(hh_food_cons, dataset, by = "HHID")
+    dataset$amount_eaten_per_day <- (dataset$individual_afe * dataset$quantity_100g_day)
+    dataset <- dataset [dataset$category == target_group, ]
     return(dataset)
   }
+
 
   # calcConsumedOne is called if one parameter is given: food_group_adjust
   calcConsumedOne <- function(dataset, food_group_adjust) {
@@ -326,8 +340,15 @@
   grams_table_prep <- round(grams_table_prep, 3)
 
   food_description <- dataset[,c("food_item", "amount_eaten_per_day")]
-  food_description$amount_eaten_per_day <- sapply(food_description$amount_eaten_per_day, as.numeric)
-  food_description$amount_eaten_per_day <- round(food_description$amount_eaten_per_day, 3)
+
+
+  if(is.numeric(food_description$amount_eaten_per_day)){
+    food_description$amount_eaten_per_day <- sapply(food_description$amount_eaten_per_day, as.numeric)
+    food_description$amount_eaten_per_day <- round(food_description$amount_eaten_per_day, 3)
+  } else {
+    food_description$amount_eaten_per_day <- NA
+  }
+
   grams_table_m <- merge(grams_table_prep, food_description , by.x = "Equitable household food distribution", by.y = "amount_eaten_per_day")
   grams_table <- grams_table_m[,c(ncol(grams_table_m),1:(ncol(grams_table_m)-1))]
   return(grams_table)
@@ -375,6 +396,8 @@ IntraHHMaths <- function(hh_food_consumption_file,
 
   hh_pregnant <- adjustPregnancy(hh_pregnant_file)
 
+  n <- seq(0, model_max_value, model_increments)
+
   amfe_summary <- calcAFME(hh_roster, ame_factors, ame_spec_factors, hh_pregnant)
 
   hces <- hh_roster |> dplyr::left_join(amfe_summary)
@@ -383,49 +406,101 @@ IntraHHMaths <- function(hh_food_consumption_file,
 
   dataset <- targetCategory(hces, hh_food_cons, ame_factors)
 
-  hhids <- as.list(unique(dataset$HHID))
-
-  hhid <- hhids[21]
-
- # works
- # aggregate(dataset$kcal, by = hhids, FUN= sum)
- #
- # aggregate(dataset$kcal, by = list(dataset$food_group), FUN= sum)
- #
- #
- #
- #  lapply (hhids, targetConsumption, dataset, hhid, hh_food_cons, target_group= WRA)
+  dataset[] <- lapply(dataset, function(x) { attributes(x) <- NULL; x })
+  dataset$kcal <- as.numeric(dataset$kcal)
 
 
+### HHID FILTER / Eligible households
+  # 1) Select HHs which have consumed food belonging to the "food group adjust" food group
+  hh_food_cons$food_adjust <- hh_food_cons$food_group == food_group_adjust
+  subset_ids_adjust <- aggregate(hh_food_cons$food_adjust, by = list(hh_food_cons$HHID), FUN = sum)
+  hhid_food_adjust <- subset_ids_adjust[which(subset_ids_adjust$x > 0) , "Group.1"]
 
+  # 2) Select HHs which have a HH member belonging to the "target group"
+  dataset$target_count <- dataset$category == target_group
+  count_ids <- aggregate(dataset$target_count, by = list(dataset$HHID), FUN = sum)
+  hhid_target <- count_ids[which(count_ids$x == 1) , "Group.1"]
 
-  dataset <- targetConsumption(dataset, hhid, hh_food_cons, target_group)
+  if(is.null(food_group_compensate)){
 
-  initial_calculations <- calcConsumed(dataset, food_group_adjust, food_group_compensate)
+    hhid <- intersect(hhid_target, hhid_food_adjust)
 
-  dataset <- initial_calculations$dataset
+  } else if (!is.null(food_group_compensate)) {
+  # 3) If a "compensate" food group is present, select HHs which have consumed food belonging to this food group,
+     # find the intersect (household that have consumed bot the food group adjust & compensate) AND have a HH member
+     # which belongs to the target group of interest
+    hh_food_cons$food_compensate <- hh_food_cons$food_group == food_group_compensate
+    subset_ids_compensate <- aggregate(hh_food_cons$food_compensate, by = list(hh_food_cons$HHID), FUN = sum)
+    hhid_food_compensate <- subset_ids_compensate[which(subset_ids_compensate$x > 0) , "Group.1"]
 
-  energy_breakdown_table <-initial_calculations$energy_breakdown_table
+    hhid_food_adjust_compensate <- intersect(hhid_food_adjust, hhid_food_compensate)
 
-  n <- seq(0, model_max_value, model_increments)
+    hhid <- intersect(hhid_target,hhid_food_adjust_compensate)
 
-  list_result_increase <- calcGramsInc(dataset, energy_breakdown_table, n,
+  }
+#### HHID FILTER / Eligible households END
+
+  targetConsumption <- function(hhid, dataset, hh_food_cons, target_group, food_group_adjust, food_group_compensate) {
+    dataset <- dataset[dataset ["HHID"] == hhid,]
+    dataset$kcal <- as.numeric(dataset$kcal)
+    dataset$afe <- dataset$kcal / (dataset[dataset$category == "WRA", "kcal"])
+    dataset$household_afe <- sum(dataset$afe)
+    dataset$individual_afe <- dataset$afe / dataset$household_afe
+    dataset <- merge(hh_food_cons, dataset, by = "HHID")
+    dataset$amount_eaten_per_day <- (dataset$individual_afe * dataset$quantity_100g_day)
+    dataset <- dataset [dataset$category == target_group, ]
+
+    if(is.null(food_group_compensate)){
+      initial_calculations <-  calcConsumedOne(dataset, food_group_adjust)
+    } else if (!is.null(food_group_compensate)) {
+      initial_calculations <- calcConsumedTwo(dataset, food_group_adjust, food_group_compensate)
+    }
+
+    dataset <- initial_calculations$dataset
+
+    energy_breakdown_table <- initial_calculations$energy_breakdown_table
+
+    list_result_increase <- calcGramsInc(dataset, energy_breakdown_table, n,
                                          food_group_adjust, food_group_compensate)
 
-  list_result_decrease <- calcGramsDec(dataset, energy_breakdown_table, n,
+    list_result_decrease <- calcGramsDec(dataset, energy_breakdown_table, n,
                                          food_group_adjust, food_group_compensate)
 
-  grams_table <- gramsDF(dataset, list_result_increase, list_result_decrease, increase_decrease)
+    grams_table <- gramsDF(dataset, list_result_increase, list_result_decrease, increase_decrease)
 
-  adjusted_intake <- calcAdjIntake(hh_food_cons, dataset, grams_table)
+    adjusted_intake <- calcAdjIntake(hh_food_cons, dataset, grams_table)
 
+    return(list(dataset= dataset, initial_calculations = initial_calculations,
+                energy_breakdown_table = energy_breakdown_table,
+                list_result_increase =  list_result_increase,
+                grams_table = grams_table,
+                adjusted_intake = adjusted_intake
+                ))
+  }
 
+  result <- lapply(X = hhid, FUN = targetConsumption, dataset, hh_food_cons, target_group,
+                    food_group_adjust,
+                    food_group_compensate)
 
-  return(list(dataset = dataset,
-              energy_breakdown_table = energy_breakdown_table,
-              grams_table = grams_table,
-              adjusted_intake = adjusted_intake))
+  return(result)
 }
+
+
+#
+# Testing
+hh_food_consumption_file <- "../data/IHS5_relabelled.csv"
+hh_roster_file = "../data/HH_MOD_B.dta"
+hh_pregnant_file = "../data/hh_pregnant_ids.csv"
+food_group_adjust <- "Meat"
+food_group_compensate <- "Vegetables"
+increase_decrease = 'both'
+model_increments <- 10
+model_max_value <- 100
+target_group = "WRA"
+
+
+# #WRITE ERROR MESSAGE IF FOOD SUBGROUP IS NOT IN LIST
+
 
 model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
                       hh_roster_file = "../data/HH_MOD_B.dta",
@@ -441,3 +516,118 @@ dataset <- model$dataset
 energy_breakdown_table <- model$energy_breakdown_table
 grams_table <- model$grams_table
 adjusted_intake <-model$adjusted_intake
+
+
+#
+#
+# # # Function call examples:
+# # # Scenario 1 - Starchy Staples (food_group_compensate parameter empty)
+# model <- IntraHHMaths(HCES = "../data/HCES.csv",
+#                       FCT = "../data/FCT_changed.csv",
+#                       hh_roster = "../data/HH_MOD_B.dta",
+#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+#                       target_group = "WRA",
+#                       food_group_adjust = "Starchy Staples",
+#                       increase_decrease = 'both',
+#                       model_increments = 10,
+#                       model_max_value = 100)
+#
+# dataset <- model$dataset
+# energy_breakdown_table <- model$energy_breakdown_table
+# grams_table <- model$grams_table
+# adjusted_intake <-model$adjusted_intake
+# #
+#
+# # model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
+# #                       hh_roster_file = "../data/HH_MOD_B.dta",
+# #                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+# #                       food_group_adjust = "Vegetables",
+# #                       food_group_compensate = "Bananas", ' BANANAS!
+# #                       increase_decrease = 'both',
+# #                       model_increments = 10,
+# #                       model_max_value = 100,
+# #                       target_group = "WRA")
+# #
+# # dataset <- model$dataset
+# # energy_breakdown_table <- model$energy_breakdown_table
+# # grams_table <- model$grams_table
+# # adjusted_intake <-model$adjusted_intake
+
+
+# Scenario 2 - Legumes (food_group_compensate parameter empty)
+# model <- IntraHHMaths(HCES = "../data/HCES.csv",
+#                       FCT = "../data/FCT.csv",
+#                       hh_roster_file = "../data/HH_MOD_B.dta",
+#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+#                       # target_group = "WRA",
+#                       food_group_adjust = "Legumes",
+#                       increase_decrease = 'both',
+#                       model_increments = 10,
+#                       model_max_value = 100)
+#
+# dataset <- model$dataset
+# energy_breakdown_table <- model$energy_breakdown_table
+# grams_table <- model$grams_table
+# adjusted_intake <-model$adjusted_intake
+#
+#
+# # Scenario 3 - food_group_compensate two parameters given:
+# model <- IntraHHMaths(HCES = "../data/HCES.csv",
+#                       FCT = "../data/FCT.csv",
+#                       hh_roster_file = "../data/HH_MOD_B.dta",
+#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+#                       # target_group = "WRA",
+#                       food_group_adjust = "Legumes",
+#                       food_group_compensate = "Starchy Staples",
+#                       increase_decrease = 'both',
+#                       model_increments = 10,
+#                       model_max_value = 100)
+#
+# dataset <- model$dataset
+# energy_breakdown_table <- model$energy_breakdown_table
+# grams_table <- model$grams_table
+# adjusted_intake <-model$adjusted_intake
+
+# Testing
+
+# library (haven)
+# library (tidyverse)
+# library (dplyr)
+
+# Testing purposes - Scenario 1
+# HCES = "../data/HCES.csv"
+# FCT = "../data/FCT_changed.csv"
+# hh_roster_file = "../data/HH_MOD_B.dta"
+# hh_pregnant_file = "../data/hh_pregnant_ids.csv"
+# food_group_adjust <- "Starchy Staples"
+# food_group_compensate <- NULL
+# increase_decrease = 'both'
+# model_increments <- 10
+# model_max_value <- 100
+
+## Testing purposes - Scenario 2
+# HCES = "../data/HCES.csv"
+# FCT = "../data/FCT.csv"
+# hh_roster_file = "../data/HH_MOD_B.dta"
+# hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+# food_group_adjust <- "Legumes"
+# food_group_compensate <- NULL
+# increase_decrease = 'both'
+# model_increments <- 10
+# model_max_value <- 100
+
+## Testing purposes - Scenario 3
+# HCES <- "../data/HCES.csv"
+# FCT <- "../data/FCT.csv"
+# hh_roster_file = "../data/HH_MOD_B.dta"
+# hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+# food_group_adjust <- "Legumes"
+# food_group_compensate <- "Starchy Staples"
+# increase_decrease <- 'both'
+# model_increments <- 10
+# model_max_value <- 100
+
+## 1. get .dta roster file make the dataset
+## 2. calc AFEs
+
+# PID = person (in household) ID
