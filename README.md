@@ -15,9 +15,7 @@ Hypothetical analysis on the impact of unequal intra-household food distribution
  - Step 3: Calculate the adult equivalent (AFE/AME) assuming equal intrahousehold food distribution. Since we are primarily focused on the female groups, the Adult Female Equivalent (AFE) has been used in the calculations, rather than the Adult Male Equivalent (AME). 
  - Step 4: Keeping the total amount of energy constant, we increase and/or decrease the amount of energy provided by a food sub-group (i.e. starchy staples) and compensate the remaining energy by one or all other food groups.
  
- ![alt text]( https://github.com/micronutrientsupport/IntraHHmaths/blob/main/pie_1.png) 
-
- ![alt text]( https://github.com/micronutrientsupport/IntraHHmaths/blob/main/pie_2.png) 
+ ![alt text]( https://github.com/micronutrientsupport/IntraHHmaths/blob/main/increase_decrease_relationship.png) 
    
  - Step 5: Calculate the adjusted daily intakes of energy and nutrients
 
