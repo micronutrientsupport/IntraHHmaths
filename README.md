@@ -1,7 +1,9 @@
 # IntraHHmath calculations
 Hypothetical analysis on the impact of unequal intra-household food distribution on programmatic or policy decisions. 
 
-## Research questions
+## What is the model about? 
+
+### Research questions: 
 - what percentage of vulnerable groups are at risk, if the individual deviates from the equitable intra-household food distribution? 
 - to what extent can the results of these analyses be generalised contexts within a country, and across different countries?
 - to what extent does the assumption of equal intra-household food distribution result in incorrect policy or programmatic decisions for the vulnerable groups in question?
