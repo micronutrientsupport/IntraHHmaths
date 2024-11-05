@@ -1,5 +1,5 @@
 # IntraHHmath calculations
-Hypothetical analysis on the impact of unequal intra-household food distribution on programmatic or policy decisions. 
+A hypothetical analysis on the impact of unequal intra-household food distribution on programmatic or policy decisions. 
 
 ## What is the model about? 
 
