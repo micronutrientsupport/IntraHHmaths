@@ -53,8 +53,8 @@ Now you should have two folders under the top level 'Intra-HH maths' directory:
 ## 3. Running the script in R/R Studio:
 
 #### 3.1. It is imperative that you provide the following files in the data directory to run the model successfully: 
-1. household roster file, i.e. "HH_MOD_B.dta.dta", which contains your data in the same format as here: https://microdata.worldbank.org/index.php/catalog/3818/data-dictionary/F5?file_name=HH_MOD_D.dta
-2. household food consumption file, i.e. "/IHS5_relabelled.csv" Please see the example entitled 'data_requirements_for_model.csv' in the data directory.
+1. household roster file, i.e. "HH_MOD_B.dta.dta", which contains your survey data in .dta format. For example: https://microdata.worldbank.org/index.php/catalog/3818/data-dictionary/F5?file_name=HH_MOD_D.dta
+2. household food consumption file, i.e. "IHS5_relabelled.csv" Please see the example entitled 'data_requirements_for_model.csv' in the data directory.
 3. hh_pregnant_ids.csv, This is a csv file which requires you to provide the household ids (HHID) of the household with pregnant individuals in it. Please see the example in the data directory.
 4. roster_columns_required.csv. This is a csv file provided in the "data" directory which requires you to fill in the "survey_variable_names" column ONLY. Please fill in this first column with column names/variables which equal your survey which
 equal 'sex', 'age in years' (age_y) and 'age in months' (age_m).
