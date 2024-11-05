@@ -8,9 +8,6 @@ Research questions:
 - to what extent can the results of these analyses be generalised contexts within a country, and across different countries?
 - to what extent does the assumption of equal intra-household food distribution result in incorrect policy or programmatic decisions for the vulnerable groups in question?
 
-This project provides functions for the analysis of gender related differences in intra-household food distribution in a Household Consumption Expenditure Survey (HCES).  
-Its current features include being able to model what would happen if the food portions consumed by an individual within a household (WRA) deviates from the assumed equal household distribution. Foods within in a food group (i.e., cereals food group) are increased and then decreased by a given parameter (i.e. 10%, 20%, 30%...) to simulate different levels of inequity in intrahousehold food distribution for the food (or group of foods) of interest. 
-
 ### The model: 
 
  - Step 1: Define our target group, i.e. adolescent girls or women of reproductive Age (WRA).
