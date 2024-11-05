@@ -1,8 +1,25 @@
 # IntraHHmath calculations
 
-## Using the package
+## What is the model about? 
+Hypothetical analysis on the impact of unequal intra-household food distribution on programmatic or policy decisions. 
+
+Research questions:
+- what percentage of vulnerable groups are at risk, if the individual deviates from the equitable intra-household food distribution? 
+- to what extent can the results of these analyses be generalised contexts within a country, and across different countries?
+- to what extent does the assumption of equal intra-household food distribution result in incorrect policy or programmatic decisions for the vulnerable groups in question?
 
 This project provides functions for the analysis of gender related differences in intra-household food distribution in a Household Consumption Expenditure Survey (HCES).  
+Its current features include being able to model what would happen if the food portions consumed by an individual within a household (WRA) deviates from the assumed equal household distribution. Foods within in a food group (i.e., cereals food group) are increased and then decreased by a given parameter (i.e. 10%, 20%, 30%...) to simulate different levels of inequity in intrahousehold food distribution for the food (or group of foods) of interest. 
+
+### The model: 
+
+ - Step 1: Define our target group, i.e. adolescent girls or women of reproductive Age (WRA).
+ - Step 2. Select eligible households that have a member from the target group of interest. Currently the model selects HHs that have consumed the particular food group that is being modelled along with selecting HHs which feature only member of the target group of interest (WRA) in the dataset. 
+ - Step 3: Calculate the adult equivalent (AFE/AME) assuming equal intrahousehold food distribution. (since we are primarily focused on the female groups, the Adult Female Equivalent (AFE) has been used in the calculations, rather than the Adult Male Equivalent (AME). 
+ - Step 4: Keeping the total amount of energy constant, we increase and/or decrease the amount of energy provided by a food sub-group (i.e. starchy staples) and compensate the remaining energy by one or all other food groups. 
+ - Step 5: Calculate the adjusted daily intakes of energy and nutrients
+
+From here one can then use the output generated from the model to calculate the percentage of the target group with inadequate intakes, model different scenarios of interest and/or repeat the analyses for different vulnerable groups and contexts of interests. 
 
 ## 1. Installation
 
@@ -27,35 +44,6 @@ Now you should have two folders under the top level 'Intra-HH maths' directory:
 equal 'sex', 'age in years' (age_y) and 'age in months' (age_m).
 5. IHS5_AME_FACTORS_vMAPS.csv (no need to modify)
 6. IHS5_AME_SPEC_vMAPS.csv (no need to modify)
-
-## 3. Running the script in R/R Studio:
-
-#### 3.1. Set the working directory to the R script location ("R/IntraHHMaths.R")
-#### 3.2. Run the R script ("R/IntraHHMaths.R")
-
-You should be able to run the beginnings of the model!
-
-
-## Using the package
-
-This project provides functions for the analysis of gender related differences in intra-household food distribution in a Household Consumption Expenditure Survey (HCES).  
-
-## 1. Installation
-
-### Download the Github repository here at: https://github.com/micronutrientsupport/IntraHHmaths
-
-#### 1.1. Click 'Code' (Green button) 
-#### 1.2. Click 'Download ZIP'
-#### 1.3. Extract the zip file
-
-## 2. Configuration
-
-#### 2.1. Create a data directory under IntraHH-maths
-Now you should have two folders under the top level 'Intra-HH maths' directory:
-- R 
-- data 
-
-#### 2.2. Place your HCES and FCT data in your data directory ("IntraHH-maths/data") 
 
 ## 3. Running the script in R/R Studio:
 
