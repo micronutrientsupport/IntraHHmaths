@@ -13,7 +13,12 @@ Hypothetical analysis on the impact of unequal intra-household food distribution
  - Step 1: Define our target group, i.e. adolescent girls or women of reproductive Age (WRA).
  - Step 2. Select eligible households that have a member from the target group of interest. Currently the model selects HHs that have consumed the particular food group that is being modelled along with selecting HHs which feature only member of the target group of interest (WRA) in the dataset. 
  - Step 3: Calculate the adult equivalent (AFE/AME) assuming equal intrahousehold food distribution. Since we are primarily focused on the female groups, the Adult Female Equivalent (AFE) has been used in the calculations, rather than the Adult Male Equivalent (AME). 
- - Step 4: Keeping the total amount of energy constant, we increase and/or decrease the amount of energy provided by a food sub-group (i.e. cereals) and compensate the remaining energy by one or all other food groups. 
+ - Step 4: Keeping the total amount of energy constant, we increase and/or decrease the amount of energy provided by a food sub-group (i.e. starchy staples) and compensate the remaining energy by one or all other food groups.
+ 
+ ![alt text]( https://github.com/micronutrientsupport/IntraHHmaths/blob/main/pie_1.png) 
+
+ ![alt text]( https://github.com/micronutrientsupport/IntraHHmaths/blob/main/pie_2.png) 
+   
  - Step 5: Calculate the adjusted daily intakes of energy and nutrients
 
 From here one can then use the output generated from the model to calculate the percentage of the target group with inadequate intakes, model different scenarios of interest and/or repeat the analyses for different vulnerable groups and contexts of interests. 
