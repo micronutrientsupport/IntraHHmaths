@@ -443,27 +443,27 @@ IntraHHMaths <- function(hh_food_consumption_file,
 }
 
 # Scenario 1 - Cereals (food_group_compensate parameter empty), 10% de/increase
-# model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
-#                       hh_roster_file = "../data/HH_MOD_B.dta",
-#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-#                       food_group_adjust = "Cereals",
-#                       food_group_compensate = ,
-#                       increase_decrease = 'both',
-#                       model_increments = 10,
-#                       model_max_value = 100,
-#                       target_group = "WRA")
-
-
-# Scenario 2 -  Legumes & nuts (food_group_compensate parameter empty), 10% de/increase
 model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
                       hh_roster_file = "../data/HH_MOD_B.dta",
                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-                      food_group_adjust = "Legumes & nuts",
+                      food_group_adjust = "Cereals",
                       food_group_compensate = ,
                       increase_decrease = 'both',
                       model_increments = 10,
                       model_max_value = 100,
                       target_group = "WRA")
+
+
+# Scenario 2 -  Legumes & nuts (food_group_compensate parameter empty), 10% de/increase
+# model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
+#                       hh_roster_file = "../data/HH_MOD_B.dta",
+#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+#                       food_group_adjust = "Legumes & nuts",
+#                       food_group_compensate = ,
+#                       increase_decrease = 'both',
+#                       model_increments = 10,
+#                       model_max_value = 100,
+#                       target_group = "WRA")
 
 # Scenario 3 -  Legumes & nuts are compensated by Cereals, 5% de/increase
 # model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
