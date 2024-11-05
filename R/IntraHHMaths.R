@@ -20,32 +20,12 @@
 
   # Function definitions (as used in main function)
 
-  ## Data Ingestion and initial calculations
-  # DONE Step 1a: Input datasets (HCES & FCT)
-  # DONE Step 1b: Merge datasets together on food sub-group
-  # TODO Step 2a: Select eligible HHs
-  # DONE Step 2b: Calculate amount of food eaten according to AME/AFE
-  # DONE Step 3: Calculate total energy consumed from food per day
-  # DONE Step 4: Create energy_breakdown_table (shows how much energy comes from each food sub-group)
-
-  ## Increase decrease foods
-  # DONE Step 5: Create increase/decrease matrix
-  # DONE 1) Increase food-group (Increase 1 food group a time (Max 1 input), rest stay the same)
-  # DONE 2) Decrease food-group (Decrease 1 food group (max 1 input), rest stays the same)
-  # DONE 3) Increase 1 food group AND decrease 1 food group, rest stays same - legumes/cereal example)
-  # DONE Step 6: Create food_portions_ratio matrix for all increase and decrease ratios (0 - 100%)
-  # DONE Crete parameter to calculate values (Equal, 10%, 20% ... 100%)
-  # DONE Step 7: Create adjusted_grams_food matrix
-  # DONE Step 8: Create adjusted_dietary_intakes for each micronutrient
-
   preprocess_analysis <- function(hh_roster_file){
     hh_roster <- haven::read_dta(hh_roster_file)
-    # if( read.csv("../data/roster_columns_required.csv") == NULL) stop("too many iterations")
     roster_columns <- read.csv("../data/roster_columns_required.csv")
     survey_names <- roster_columns[ ,"survey_variable_names"]
     standard_names <- roster_columns[ ,"hces_standard_name"]
     data.table::setnames(hh_roster, survey_names, standard_names, skip_absent = TRUE)
-    ### Remove extreme age values!
     hh_roster$age_m_total <- ifelse(is.na(hh_roster$age_m), hh_roster$age_y * 12, hh_roster$age_y * 12 + hh_roster$age_m)
     return(hh_roster)
   }
@@ -174,7 +154,7 @@
     }
   }
 
-  selectHHIDs <- function(dataset, hh_food_cons, target_group, food_group_adjust, food_group_compensate) {
+  selectHHIDs <- function(dataset, hh_food_cons, target_group, food_group_adjust, food_group_compensate, hh_pregnant) {
 
     hh_food_cons$food_adjust <- hh_food_cons$food_group == food_group_adjust
     subset_ids_adjust <- aggregate(hh_food_cons$food_adjust, by = list(hh_food_cons$HHID), FUN = sum)
@@ -198,6 +178,9 @@
 
       hhid <- intersect(hhid_target,hhid_food_adjust_compensate)
     }
+
+    hhid <- hhid[!(hhid %in% hh_pregnant$HHID)] # remove HHIDs with pregnant individuals
+
     return (hhid)
   }
 
@@ -411,7 +394,7 @@
                                          food_group_adjust, food_group_compensate)
     grams_table <- gramsDF(dataset, list_result_increase, list_result_decrease, increase_decrease)
     adjusted_intake <- calcAdjIntake(hh_food_cons, dataset, grams_table)
-    return(list(dataset= dataset, initial_calculations = initial_calculations,
+    return(list(initial_calculations = initial_calculations,
                 energy_breakdown_table = energy_breakdown_table,
                 list_result_increase =  list_result_increase,
                 grams_table = grams_table,
@@ -450,7 +433,7 @@ IntraHHMaths <- function(hh_food_consumption_file,
 
   errorMessages(hh_food_cons, food_group_adjust, food_group_compensate)
 
-  hhid <- selectHHIDs(dataset, hh_food_cons, target_group, food_group_adjust, food_group_compensate)
+  hhid <- selectHHIDs(dataset, hh_food_cons, target_group, food_group_adjust, food_group_compensate, hh_pregnant)
 
   result <- lapply(X = hhid, FUN = modelallHHs, dataset, hh_food_cons, target_group,
                    food_group_adjust,
@@ -459,151 +442,36 @@ IntraHHMaths <- function(hh_food_consumption_file,
   return(result)
 }
 
-
-# #
-# # # Testing
-# hh_food_consumption_file = "../data/IHS5_relabelled.csv"
-# hh_roster_file = "../data/HH_MOD_B.dta"
-# hh_pregnant_file = "../data/hh_pregnant_ids.csv"
-# food_group_adjust = "Meat"
-# food_group_compensate = "Vegetables"
-# increase_decrease = 'both'
-# model_increments = 10
-# model_max_value = 100
-# target_group = "WRA"
-
-# #WRITE ERROR MESSAGE IF FOOD SUBGROUP IS NOT IN LIST
+# Scenario 1 - Cereals (food_group_compensate parameter empty), 10% de/increase
+# model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
+#                       hh_roster_file = "../data/HH_MOD_B.dta",
+#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
+#                       food_group_adjust = "Cereals",
+#                       food_group_compensate = ,
+#                       increase_decrease = 'both',
+#                       model_increments = 10,
+#                       model_max_value = 100,
+#                       target_group = "WRA")
 
 
+# Scenario 2 -  Legumes & nuts (food_group_compensate parameter empty), 10% de/increase
 model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
                       hh_roster_file = "../data/HH_MOD_B.dta",
                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-                      food_group_adjust = "Meat",
-                      food_group_compensate = "Vegetables",
+                      food_group_adjust = "Legumes & nuts",
+                      food_group_compensate = ,
                       increase_decrease = 'both',
                       model_increments = 10,
                       model_max_value = 100,
                       target_group = "WRA")
 
-# dataset <- model$dataset
-# energy_breakdown_table <- model$energy_breakdown_table
-# grams_table <- model$grams_table
-# adjusted_intake <-model$adjusted_intake
-
-
-
-# # # Function call examples:
-# # # Scenario 1 - Starchy Staples (food_group_compensate parameter empty)
-# model <- IntraHHMaths(HCES = "../data/HCES.csv",
-#                       FCT = "../data/FCT_changed.csv",
-#                       hh_roster = "../data/HH_MOD_B.dta",
-#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-#                       target_group = "WRA",
-#                       food_group_adjust = "Starchy Staples",
-#                       increase_decrease = 'both',
-#                       model_increments = 10,
-#                       model_max_value = 100)
-#
-# dataset <- model$dataset
-# energy_breakdown_table <- model$energy_breakdown_table
-# grams_table <- model$grams_table
-# adjusted_intake <-model$adjusted_intake
-# #
-#
-# # model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
-# #                       hh_roster_file = "../data/HH_MOD_B.dta",
-# #                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-# #                       food_group_adjust = "Vegetables",
-# #                       food_group_compensate = "Bananas", ' BANANAS!
-# #                       increase_decrease = 'both',
-# #                       model_increments = 10,
-# #                       model_max_value = 100,
-# #                       target_group = "WRA")
-# #
-# # dataset <- model$dataset
-# # energy_breakdown_table <- model$energy_breakdown_table
-# # grams_table <- model$grams_table
-# # adjusted_intake <-model$adjusted_intake
-
-
-# Scenario 2 - Legumes (food_group_compensate parameter empty)
-# model <- IntraHHMaths(HCES = "../data/HCES.csv",
-#                       FCT = "../data/FCT.csv",
+# Scenario 3 -  Legumes & nuts are compensated by Cereals, 5% de/increase
+# model <- IntraHHMaths(hh_food_consumption_file = "../data/IHS5_relabelled.csv",
 #                       hh_roster_file = "../data/HH_MOD_B.dta",
 #                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-#                       # target_group = "WRA",
-#                       food_group_adjust = "Legumes",
+#                       food_group_adjust = "Legumes & nuts",
+#                       food_group_compensate = "Cereals",
 #                       increase_decrease = 'both',
-#                       model_increments = 10,
-#                       model_max_value = 100)
-#
-# dataset <- model$dataset
-# energy_breakdown_table <- model$energy_breakdown_table
-# grams_table <- model$grams_table
-# adjusted_intake <-model$adjusted_intake
-#
-#
-# # Scenario 3 - food_group_compensate two parameters given:
-# model <- IntraHHMaths(HCES = "../data/HCES.csv",
-#                       FCT = "../data/FCT.csv",
-#                       hh_roster_file = "../data/HH_MOD_B.dta",
-#                       hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-#                       # target_group = "WRA",
-#                       food_group_adjust = "Legumes",
-#                       food_group_compensate = "Starchy Staples",
-#                       increase_decrease = 'both',
-#                       model_increments = 10,
-#                       model_max_value = 100)
-#
-# dataset <- model$dataset
-# energy_breakdown_table <- model$energy_breakdown_table
-# grams_table <- model$grams_table
-# adjusted_intake <-model$adjusted_intake
-
-# Testing
-
-# library (haven)
-# library (tidyverse)
-# library (dplyr)
-
-# Testing purposes - Scenario 1
-# HCES = "../data/HCES.csv"
-# FCT = "../data/FCT_changed.csv"
-# hh_roster_file = "../data/HH_MOD_B.dta"
-# hh_pregnant_file = "../data/hh_pregnant_ids.csv"
-# food_group_adjust <- "Starchy Staples"
-# food_group_compensate <- NULL
-# increase_decrease = 'both'
-# model_increments <- 10
-# model_max_value <- 100
-
-## Testing purposes - Scenario 2
-# HCES = "../data/HCES.csv"
-# FCT = "../data/FCT.csv"
-# hh_roster_file = "../data/HH_MOD_B.dta"
-# hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-# food_group_adjust <- "Legumes"
-# food_group_compensate <- NULL
-# increase_decrease = 'both'
-# model_increments <- 10
-# model_max_value <- 100
-
-## Testing purposes - Scenario 3
-# HCES <- "../data/HCES.csv"
-# FCT <- "../data/FCT.csv"
-# hh_roster_file = "../data/HH_MOD_B.dta"
-# hh_pregnant_file = "../data/hh_pregnant_ids.csv",
-# food_group_adjust <- "Legumes"
-# food_group_compensate <- "Starchy Staples"
-# increase_decrease <- 'both'
-# model_increments <- 10
-# model_max_value <- 100
-
-## 1. get .dta roster file make the dataset
-## 2. calc AFEs
-
-# PID = person (in household) ID
-
-
-
-
+#                       model_increments = 5,
+#                       model_max_value = 100,
+#                       target_group = "WRA")
