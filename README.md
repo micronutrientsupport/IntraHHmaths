@@ -44,7 +44,7 @@ equal 'sex', 'age in years' (age_y) and 'age in months' (age_m).
 
 ## 3. Running the script in R/R Studio:
 
-#### 3.1. Place the aforementioned data files (see 2.2.) in the data directory 
+#### 3.1. Place the aforementioned data files in the ("data") directory, see section 2.2.
 #### 3.2. Set the working directory to the R script location ("R/IntraHHMaths.R")
 #### 3.3. Run the R script ("R/IntraHHMaths.R")
 
